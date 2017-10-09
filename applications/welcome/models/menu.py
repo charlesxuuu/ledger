@@ -5,10 +5,16 @@
 # Customize your APP title, subtitle and menus here
 # ----------------------------------------------------------------------------------------------------------------------
 
-response.logo = A(B('web', SPAN(2), 'py'), XML('&trade;&nbsp;'),
-                  _class="navbar-brand", _href="http://www.web2py.com/",
-                  _id="web2py-logo")
-response.title = request.application.replace('_', ' ').title()
+#response.logo = A(B('web', SPAN(2), 'py'), XML('&trade;&nbsp;'),
+#                  _class="navbar-brand", _href="http://www.web2py.com/",
+#                  _id="web2py-logo")
+
+
+#response.logo = IMG(_src = URL('static', 'images/logo.png'), _style="display: block; margin: auto; max-width: 50%; height: auto; padding: 5px;")
+
+#response.title = request.application.replace('_', ' ').title()
+
+response.title = 'Welcome'
 response.subtitle = ''
 
 # ----------------------------------------------------------------------------------------------------------------------
