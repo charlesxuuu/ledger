@@ -1,0 +1,24 @@
+{{left_sidebar_enabled,right_sidebar_enabled=False,('message' in globals())}}
+{{extend 'layout.html'}}
+
+
+
+<h4>Image: {{=image.title}}</h4>
+<div style="text-align:left">
+<img width="100%" 
+     src="{{=URL('download', args=image.image_file)}}" />
+</div>
+{{if len(comments):}}
+  <h4>Comments</h4><br /><p>
+  {{for post in comments:}}
+    <p>{{=post.author}} says <i>{{=post.reply}}</i></p>
+  {{pass}}</p>
+{{else:}}
+  <h4>No comments posted yet</h4>
+{{pass}}
+<h4>Post a comment</h4>
+</div style="text-align:right">
+{{=form}}
+<div>
+
+
