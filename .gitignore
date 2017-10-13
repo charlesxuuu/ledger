@@ -38,6 +38,8 @@ parameters*.py
 ./examples.w2p
 cron.master
 applications/*
+!applications/ledger
+!applications/ledger/*
 !applications/welcome
 !applications/welcome/*
 !applications/examples

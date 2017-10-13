@@ -82,6 +82,7 @@ response.form_label_separator = myconf.get('forms.separator') or ''
 
 from gluon.tools import Auth, Service, PluginManager
 
+
 # host names must be a list of allowed host names (glob syntax allowed)
 auth = Auth(db, host_names=myconf.get('host.names'))
 service = Service()
@@ -102,10 +103,12 @@ auth.define_tables(username=False, signature=False)
 # configure email
 # -------------------------------------------------------------------------
 mail = auth.settings.mailer
-mail.settings.server = 'logging' if request.is_local else myconf.get('smtp.server')
+#mail.settings.server = 'logging' if request.is_local else myconf.get('smtp.server')
+mail.settings.server = myconf.get('smtp.server')
 mail.settings.sender = myconf.get('smtp.sender')
 mail.settings.login = myconf.get('smtp.login')
 mail.settings.tls = myconf.get('smtp.tls') or False
+#for Gmail ssl should be set to be False in appconfig.ini
 mail.settings.ssl = myconf.get('smtp.ssl') or False
 
 # -------------------------------------------------------------------------
@@ -131,6 +134,7 @@ db.define_table('dineout',
   Field('dine_date', type='date'),
   Field('dine_location', type='string'),
   Field('is_active', type='boolean', default=True),
+  Field('random', type='string'),
   Field('attendee_id', type='list:integer'),
   Field('amount', type='double'),
   Field('payer_id', db.auth_user))

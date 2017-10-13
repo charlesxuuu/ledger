@@ -8,6 +8,9 @@
 # - download is for downloading files uploaded in the db (does streaming)
 # -------------------------------------------------------------------------
 from time import sleep
+import random
+from pprint import pprint
+from gluon.tools import Mail
 
 
 def index():
@@ -30,7 +33,7 @@ def index():
     db.auth_user.total_count.readable=True
     db.auth_user.total_count.writable=False
 
-    crew = SQLFORM.grid(db.auth_user, deletable=False, editable=False, create=False, csv = False)
+    crew = SQLFORM.grid(db.auth_user, deletable=False, editable=False, create=False, csv=False)
     images = db().select(db.image.ALL, orderby=db.image.title)
     return dict(message=T('Ledger'),crew=crew,images=images)
 
@@ -60,7 +63,7 @@ def show():
     db.post.author.default = auth.user.first_name
     form = SQLFORM(db.post, fields=['reply'])
     if form.process().accepted:
-        response.flash = 'your comment is posted'
+        response.flash = 'Your comment is posted'
     comments = db(db.post.image_id == image.id).select()
     return dict(image=image, comments=comments, form=form)
 
@@ -114,20 +117,93 @@ def candidate():
     db.auth_user.recent_count.readable=True
     db.auth_user.recent_count.writable=True
 
-    candidate = SQLFORM.grid(db.auth_user, deletable=False, editable=True, create=False, csv = False)
+    candidate = SQLFORM.grid(db.auth_user, deletable=False, editable=True, create=False, csv=False)
     
     return dict(candidate=candidate)
 
 
+
+@auth.requires_membership('manager')
 def dineout():
+    db.auth_user.id.readable=True
+    db.auth_user.id.writable=False
+    db.auth_user.first_name.readable=True
+    db.auth_user.first_name.writable=False
+    db.auth_user.last_name.readable=True
+    db.auth_user.last_name.writable=False
+    db.auth_user.email.readable=False
+    db.auth_user.email.writable=False
+    db.auth_user.password.readable=False
+    db.auth_user.password.writable=False
+
+    db.auth_user.vehicle.readable=True
+    db.auth_user.vehicle.writable=True
+    db.auth_user.available.readable=True
+    db.auth_user.available.writable=True
+    db.auth_user.recent_count.readable=True
+    db.auth_user.recent_count.writable=True
+    
+    mail = auth.settings.mailer
+    mailinfo = str(vars(mail))
+    
+    #rows
+    pool = db((db.auth_user.available == True) & (db.auth_user.recent_count <= 1)).select()   
+
+
+    #All
+    #candidate = SQLFORM.grid(db.auth_user, deletable=False, editable=False, create=False, csv=False)
+    
+    #Filtered
+    candidate = SQLFORM.grid(db((db.auth_user.available == True) & (db.auth_user.recent_count <= 1)), deletable=False, editable=False, create=False, csv=False)
+    
+    
+    selected = random.sample(range(0, len(pool)), len(pool))
+    selected_person = list()
+    selected_person_id_set = set()
+    for i in selected:
+        selected_person.append([str(pool[selected[i]].id), pool[selected[i]].first_name, pool[selected[i]].last_name])
+        selected_person_id_set.add(str(pool[selected[i]].id))
     form = SQLFORM(db.dineout, fields=['dine_date','dine_location','attendee_id'])
+    form.add_button('BACK', URL('ledger', 'default', 'candidate'))
 
     if form.process().accepted:
-       session.flash = 'Accepted'
-       redirect(URL('ledger','default','index'))
-    elif form.errors:
-       response.flash = 'Error'
+        try :
+            for i in form.vars.attendee_id: 
+                if i in selected_person_id_set:   
+                    continue            
+                    #db.payment.insert(dineout_id=form.vars.id, user_id=int(i), amount=0)
+                else:
+                    if i is "":
+                        raise Exception("Insert Error (NULL value)")
+                    else:
+                        raise Exception("Insert Error (invalid person id)")
+        except Exception, e:
+            response.flash = "Insert Error (%s)" % e.message
+            db(db.dineout.id == form.vars.id).delete()
+            #db(db.payment.dineout_id == form.vars.id).delete()
+        else: 
+            db(db.dineout.id == form.vars.id).update(is_active=True, random=str(selected_person))
+            result = mail.send(to=['nml.sfu@gmail.com'],
+                        subject='Dineout on '+ str(form.vars.dine_date),
+                        # If reply_to is omitted, then mail.settings.sender is used
+                        reply_to='nml.sfu@gmail.com',
+                        message='Test')
+            session.flash = 'Accepted. ' + 'mailed? :' + str(result) #+ str(vars(form))
+            redirect(URL('ledger','default','index'))
     else:
-       response.flash = 'Please fill out the event information'
-    return dict(form=form)
+        response.flash = 'Please fill out the dineout information'
+
+    return locals()
+
+@auth.requires_membership('manager')
+def payment():
+
+    dineout = SQLFORM.grid(db(db.dineout.is_active==True), deletable=False, editable=True, create=False, csv=False, onupdate=update_payment)
+    return locals()
+
+def update_payment(form):
+    response.flash = str(form.vars)
+    return
+
+
 
