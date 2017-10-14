@@ -13,6 +13,7 @@ from pprint import pprint
 from gluon.tools import Mail
 
 
+
 def index():
     """
     example action using the internationalization operator T and flash
@@ -38,6 +39,7 @@ def index():
     return dict(message=T('Ledger'),crew=crew,images=images)
 
 
+
 def user():
     """
     exposes:
@@ -55,6 +57,8 @@ def user():
     also notice there is http://..../[app]/appadmin/manage/auth to allow administrator to manage users
     """
     return dict(form=auth())
+
+
 
 @auth.requires_login()
 def show():
@@ -78,6 +82,7 @@ def download():
     return response.download(request, db)
 
 
+
 def call():
     """
     exposes services. for example:
@@ -87,15 +92,21 @@ def call():
     """
     return service()
 
+
+
 @auth.requires_membership('manager')
 def manage():
     grid = SQLFORM.smartgrid(db.image, linked_tables=['post'])
     return dict(grid=grid)
 
+
+
 @auth.requires_membership('manager')
 def crew():
     grid = SQLFORM.smartgrid(db.auth_user)
     return dict(grid=grid)
+
+
 
 @auth.requires_membership('manager')
 def candidate():
@@ -149,13 +160,11 @@ def dineout():
     #rows
     pool = db((db.auth_user.available == True) & (db.auth_user.recent_count <= 1)).select()   
 
-
     #All
     #candidate = SQLFORM.grid(db.auth_user, deletable=False, editable=False, create=False, csv=False)
-    
+
     #Filtered
     candidate = SQLFORM.grid(db((db.auth_user.available == True) & (db.auth_user.recent_count <= 1)), deletable=False, editable=False, create=False, csv=False)
-    
     
     selected = random.sample(range(0, len(pool)), len(pool))
     selected_person = list()
@@ -183,11 +192,24 @@ def dineout():
             #db(db.payment.dineout_id == form.vars.id).delete()
         else: 
             db(db.dineout.id == form.vars.id).update(is_active=True, random=str(selected_person))
-            result = mail.send(to=['nml.sfu@gmail.com'],
+            
+            #send email
+            email_list = ['nml.sfu@gmail.com', 'chix@sfu.ca']
+            content = 'Hi All, \n\n\nPlease join the dineout on ' + str(form.vars.dine_date) + '.\n\n'
+
+            for i in form.vars.attendee_id:
+                attendee = db(db.auth_user.id == int(i)).select()
+                #assume there is only one row, attendee -> attendee[0]
+                email_list.append(attendee[0].email)
+                content = content + attendee[0].first_name + ' ' + attendee[0].last_name + '\tBalance: ' + str(attendee[0].balance) + '\n'
+            content = content + ' \n\n\nBest,\nSFU NetMedia Lab'
+
+            result = mail.send(to=email_list,
                         subject='Dineout on '+ str(form.vars.dine_date),
                         # If reply_to is omitted, then mail.settings.sender is used
                         reply_to='nml.sfu@gmail.com',
-                        message='Test')
+                        message=content)
+
             session.flash = 'Accepted. ' + 'mailed? :' + str(result) #+ str(vars(form))
             redirect(URL('ledger','default','index'))
     else:
@@ -195,14 +217,75 @@ def dineout():
 
     return locals()
 
+
+
 @auth.requires_membership('manager')
 def payment():
 
-    dineout = SQLFORM.grid(db(db.dineout.is_active==True), deletable=False, editable=True, create=False, csv=False, onupdate=update_payment)
+    db.dineout.is_active.readable==False
+    #db.dineout.is_active.writable==False
+
+    dineout = SQLFORM.grid(db(db.dineout.is_active==True), deletable=False, editable=True, create=False, csv=False, onvalidation=validate_payment, onupdate=update_payment)
     return locals()
 
+def validate_payment(form):
+    if form.vars.amount < 0:
+        form.errors.amount = 'Amount cannot be negative'
+    if form.vars.amount is None:
+        form.errors.amount = 'Please insert amount'
+
+
 def update_payment(form):
-    response.flash = str(form.vars)
+    #<Storage {'dine_date': datetime.date(2017, 10, 12), 
+    #'random': "[['5', 'Xiaoqiang', 'Ma'], ['4', 'Yuchi', 'Chen'], ['3', 'Xiaoyi', 'Fan'], ['9', 'Fagnxin', 'Wang'], ['7', 'Jihong', 'Yu'], ['8', 'Lei', 'Zhang'], ['6', 'Siyu', 'Wu']]", 
+    #'is_active': True, 'dine_location': '\xe9\xab\x98\xe4\xbd\xb0', 
+    #'payer_id': 2, 'attendee_id': ['6', '9', '7', '4'], 
+    #'amount': 20.0, 'id': 22L}>
+
+    share_cost = round(form.vars.amount * 0.4 / len(form.vars.attendee_id), 2)
+    lab_cost = form.vars.amount - share_cost * len(form.vars.attendee_id)
+    non_payer_update = -1 * share_cost
+    payer_update = form.vars.amount - share_cost
+
+    for i in form.vars.attendee_id:     
+        if int(i) is not form.vars.payer_id:
+            db.payment.insert(dineout_id=form.vars.id, user_id=int(i), amount=non_payer_update)
+            db(db.auth_user.id == int(i)).update(balance=db.auth_user.balance+non_payer_update, recent_count=db.auth_user.recent_count+1, total_count=db.auth_user.total_count+1)
+        else:
+            db.payment.insert(dineout_id=form.vars.id, user_id=int(i), amount=payer_update)
+            db(db.auth_user.id == int(i)).update(balance=db.auth_user.balance+payer_update, recent_count=db.auth_user.recent_count+1, total_count=db.auth_user.total_count+1)
+    rows = db(db.auth_user).select()
+    for row in rows:
+        if str(row.id) not in form.vars.attendee_id:
+            db(db.auth_user.id == row.id).update(recent_count=0)
+            #print row.id
+    #db( ~(str(db.auth_user.id) in form.vars.attendee_id)).update(recent_count=0)
+    db(db.dineout.id == form.vars.id).update(is_active=False)
+
+    #send email
+    email_list = ['nml.sfu@gmail.com', 'chix@sfu.ca']
+    content = 'Hi All, \n\n\nThe payment information of the dineout on ' + str(form.vars.dine_date) + ' has been updated.\n\n'
+
+    payer = db(db.auth_user.id == form.vars.payer_id).select()
+    content = content + 'The payer is ' + payer[0].first_name + ' ' + payer[0].last_name + '.\n' 
+    content = content + 'The amount is ' + str(form.vars.amount) + '.\n\n'
+
+    for i in form.vars.attendee_id:
+        attendee = db(db.auth_user.id == int(i)).select()
+        #assume there is only one row, attendee -> attendee[0]
+        email_list.append(attendee[0].email)
+        content = content + attendee[0].first_name + ' ' + attendee[0].last_name + '\tBalance: ' + str(attendee[0].balance) + '\n'
+    content = content + ' \n\n\nBest,\nSFU NetMedia Lab'
+
+    result = mail.send(to=email_list,
+                subject='Dineout on '+ str(form.vars.dine_date),
+                # If reply_to is omitted, then mail.settings.sender is used
+                reply_to='nml.sfu@gmail.com',
+                message=content)
+
+
+    session.flash = 'Accpeted.' + 'mailed? :' + str(result)
+    redirect(URL('ledger','default','index'))
     return
 
 

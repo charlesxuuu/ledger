@@ -81,7 +81,12 @@ def _():
             (T('About'), False, URL(
                 'admin', 'default', 'about/' + app)),
         ]),
-        (T('Management'), False, URL('ledger', 'default', 'manage'))
+        (T('Management'), False, '#', [
+            (T('Crew'), False, URL('ledger', 'default', 'crew')),
+            (T('Dineout'), False, URL('ledger', 'default', 'dineout')),
+            (T('Payment'), False, URL('ledger', 'default', 'payment')),
+            (T('Image'), False, URL('ledger', 'default', 'manage')),
+        ])
     ]
 
 
