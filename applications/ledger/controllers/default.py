@@ -12,8 +12,9 @@ import random
 from pprint import pprint
 from gluon.tools import Mail
 
+admin_id = 1
 
-
+@auth.requires_login()
 def index():
     """
     example action using the internationalization operator T and flash
@@ -34,7 +35,7 @@ def index():
     db.auth_user.total_count.readable=True
     db.auth_user.total_count.writable=False
 
-    crew = SQLFORM.grid(db.auth_user, deletable=False, editable=False, create=False, csv=False)
+    crew = SQLFORM.grid(db(db.auth_user.id != admin_id), deletable=False, editable=False, create=False, csv=False)
     images = db().select(db.image.ALL, orderby=db.image.title)
     return dict(message=T('Ledger'),crew=crew,images=images)
 
@@ -103,8 +104,11 @@ def manage():
 
 @auth.requires_membership('manager')
 def crew():
+    admin = db(db.auth_user.id == admin_id).select()
+    #Assume there is only one record
+    cost = -1 * admin[0].balance
     grid = SQLFORM.smartgrid(db.auth_user)
-    return dict(grid=grid)
+    return dict(grid=grid, cost=cost)
 
 
 
@@ -204,27 +208,28 @@ def dineout():
                 content = content + attendee[0].first_name + ' ' + attendee[0].last_name + '\tBalance: ' + str(attendee[0].balance) + '\n'
             content = content + ' \n\n\nBest,\nSFU NetMedia Lab'
 
-            result = mail.send(to=email_list,
-                        subject='Dineout on '+ str(form.vars.dine_date),
-                        # If reply_to is omitted, then mail.settings.sender is used
-                        reply_to='nml.sfu@gmail.com',
-                        message=content)
+            #result = mail.send(to=email_list,
+            #            subject='Dineout on '+ str(form.vars.dine_date),
+            #            # If reply_to is omitted, then mail.settings.sender is used
+            #            reply_to='nml.sfu@gmail.com',
+            #            message=content)
 
-            session.flash = 'Accepted. ' + 'mailed? :' + str(result) #+ str(vars(form))
+            session.flash = 'Accepted. ' #+ 'mailed? :' + str(result)
             redirect(URL('ledger','default','index'))
     else:
         response.flash = 'Please fill out the dineout information'
 
     return locals()
 
-
+@auth.requires_login()
+def history():
+    dineout = SQLFORM.grid(db.dineout, deletable=False, editable=False, create=False, csv=False)
+    return locals()
 
 @auth.requires_membership('manager')
 def payment():
-
     db.dineout.is_active.readable==False
     #db.dineout.is_active.writable==False
-
     dineout = SQLFORM.grid(db(db.dineout.is_active==True), deletable=False, editable=True, create=False, csv=False, onvalidation=validate_payment, onupdate=update_payment)
     return locals()
 
@@ -260,6 +265,7 @@ def update_payment(form):
             db(db.auth_user.id == row.id).update(recent_count=0)
             #print row.id
     #db( ~(str(db.auth_user.id) in form.vars.attendee_id)).update(recent_count=0)
+    db(db.auth_user.id == admin_id).update(balance=db.auth_user.balance - form.vars.amount * 0.6)
     db(db.dineout.id == form.vars.id).update(is_active=False)
 
     #send email
@@ -277,14 +283,14 @@ def update_payment(form):
         content = content + attendee[0].first_name + ' ' + attendee[0].last_name + '\tBalance: ' + str(attendee[0].balance) + '\n'
     content = content + ' \n\n\nBest,\nSFU NetMedia Lab'
 
-    result = mail.send(to=email_list,
-                subject='Dineout on '+ str(form.vars.dine_date),
-                # If reply_to is omitted, then mail.settings.sender is used
-                reply_to='nml.sfu@gmail.com',
-                message=content)
+    #result = mail.send(to=email_list,
+    #            subject='Dineout on '+ str(form.vars.dine_date),
+    #            # If reply_to is omitted, then mail.settings.sender is used
+    #            reply_to='nml.sfu@gmail.com',
+    #            message=content)
 
 
-    session.flash = 'Accpeted.' + 'mailed? :' + str(result)
+    session.flash = 'Accpeted.' #+ 'mailed? :' + str(result)
     redirect(URL('ledger','default','index'))
     return
 
