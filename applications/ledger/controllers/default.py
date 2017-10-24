@@ -233,7 +233,7 @@ def history():
 
 @auth.requires_login()
 def mypayment():
-    mypayment = SQLFORM.grid(db(db.payment.payer_id==auth.user.id), deletable=False, editable=False, create=False, csv=False)
+    mypayment = SQLFORM.grid(db(db.payment.user_id==auth.user.id), deletable=False, editable=False, create=False, csv=False)
     return locals()
 
 @auth.requires_membership('manager')
