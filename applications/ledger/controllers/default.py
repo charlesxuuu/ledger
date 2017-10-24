@@ -107,6 +107,8 @@ def crew():
     admin = db(db.auth_user.id == admin_id).select()
     #Assume there is only one record
     cost = -1 * admin[0].balance
+    db.auth_user.balance.readable=True
+    db.auth_user.balance.writable=True
     grid = SQLFORM.smartgrid(db.auth_user)
     return dict(grid=grid, cost=cost)
 
@@ -176,7 +178,9 @@ def dineout():
     for i in selected:
         selected_person.append([str(pool[selected[i]].id), pool[selected[i]].first_name, pool[selected[i]].last_name])
         selected_person_id_set.add(str(pool[selected[i]].id))
-    form = SQLFORM(db.dineout, fields=['dine_date','dine_location','attendee_id'])
+
+    form = SQLFORM(db.dineout, fields=['dine_date','dine_location','random','attendee_id'])
+    form.vars.random = str(selected_person)
     form.add_button('BACK', URL('ledger', 'default', 'candidate'))
 
     if form.process().accepted:
@@ -187,15 +191,16 @@ def dineout():
                     #db.payment.insert(dineout_id=form.vars.id, user_id=int(i), amount=0)
                 else:
                     if i is "":
-                        raise Exception("Insert Error (NULL value)")
+                        raise Exception("NULL value")
                     else:
-                        raise Exception("Insert Error (invalid person id)")
+                        raise Exception("Invalid person id")
         except Exception, e:
-            response.flash = "Insert Error (%s)" % e.message
+            session.flash = "Insert Error (%s)" % e.message
             db(db.dineout.id == form.vars.id).delete()
+            redirect(URL('ledger','default','index'))
             #db(db.payment.dineout_id == form.vars.id).delete()
         else: 
-            db(db.dineout.id == form.vars.id).update(is_active=True, random=str(selected_person))
+            db(db.dineout.id == form.vars.id).update(is_active=True)
             
             #send email
             email_list = ['nml.sfu@gmail.com', 'chix@sfu.ca']
@@ -226,14 +231,21 @@ def history():
     dineout = SQLFORM.grid(db.dineout, deletable=False, editable=False, create=False, csv=False)
     return locals()
 
+@auth.requires_login()
+def mypayment():
+    mypayment = SQLFORM.grid(db(db.payment.payer_id==auth.user.id), deletable=False, editable=False, create=False, csv=False)
+    return locals()
+
 @auth.requires_membership('manager')
 def payment():
     db.dineout.is_active.readable==False
     #db.dineout.is_active.writable==False
-    dineout = SQLFORM.grid(db(db.dineout.is_active==True), deletable=False, editable=True, create=False, csv=False, onvalidation=validate_payment, onupdate=update_payment)
+    dineout = SQLFORM.grid(db(db.dineout.is_active==True), editable=True, create=False, csv=False, onvalidation=validate_payment, onupdate=update_payment)
     return locals()
 
 def validate_payment(form):
+    if form.deleted == True:
+        form.errors = True
     if form.vars.amount < 0:
         form.errors.amount = 'Amount cannot be negative'
     if form.vars.amount is None:
@@ -246,6 +258,8 @@ def update_payment(form):
     #'is_active': True, 'dine_location': '\xe9\xab\x98\xe4\xbd\xb0', 
     #'payer_id': 2, 'attendee_id': ['6', '9', '7', '4'], 
     #'amount': 20.0, 'id': 22L}>
+    if form.vars.delete_this_record:
+        return
 
     share_cost = round(form.vars.amount * 0.4 / len(form.vars.attendee_id), 2)
     lab_cost = form.vars.amount - share_cost * len(form.vars.attendee_id)
@@ -283,16 +297,13 @@ def update_payment(form):
         content = content + attendee[0].first_name + ' ' + attendee[0].last_name + '\tBalance: ' + str(attendee[0].balance) + '\n'
     content = content + ' \n\n\nBest,\nSFU NetMedia Lab'
 
-    #result = mail.send(to=email_list,
-    #            subject='Dineout on '+ str(form.vars.dine_date),
-    #            # If reply_to is omitted, then mail.settings.sender is used
-    #            reply_to='nml.sfu@gmail.com',
-    #            message=content)
+    result = mail.send(to=email_list,
+                subject='Dineout on '+ str(form.vars.dine_date),
+                # If reply_to is omitted, then mail.settings.sender is used
+                reply_to='nml.sfu@gmail.com',
+                message=content)
 
 
     session.flash = 'Accpeted.' #+ 'mailed? :' + str(result)
     redirect(URL('ledger','default','index'))
     return
-
-
-
