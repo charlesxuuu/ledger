@@ -23,7 +23,7 @@ def index():
     if you need a simple wiki simply replace the two lines below with:
     return auth.wiki()
     """
-    db.auth_user.id.readable=False
+    db.auth_user.id.readable=True
     db.auth_user.id.writable=False
     db.auth_user.email.readable=False
     db.auth_user.email.writable=False
@@ -228,12 +228,13 @@ def dineout():
 
 @auth.requires_login()
 def history():
-    dineout = SQLFORM.grid(db.dineout, deletable=False, editable=False, create=False, csv=False)
+    dineout = SQLFORM.grid(db.dineout, deletable=False, editable=False, create=False, csv=False, orderby=~db.dineout.id, paginate=10)
+    members = all_member()
     return locals()
 
 @auth.requires_login()
 def mypayment():
-    mypayment = SQLFORM.grid(db(db.payment.user_id==auth.user.id), deletable=False, editable=False, create=False, csv=False)
+    mypayment = SQLFORM.grid(db(db.payment.user_id==auth.user.id), deletable=False, editable=False, create=False, csv=False, orderby=~db.payment.id, paginate=10)
     return locals()
 
 @auth.requires_membership('manager')
@@ -241,6 +242,7 @@ def payment():
     db.dineout.is_active.readable==False
     #db.dineout.is_active.writable==False
     dineout = SQLFORM.grid(db(db.dineout.is_active==True), editable=True, create=False, csv=False, onvalidation=validate_payment, onupdate=update_payment)
+    members = all_member()
     return locals()
 
 def validate_payment(form):
@@ -297,13 +299,20 @@ def update_payment(form):
         content = content + attendee[0].first_name + ' ' + attendee[0].last_name + '\tBalance: ' + str(attendee[0].balance) + '\n'
     content = content + ' \n\n\nBest,\nSFU NetMedia Lab'
 
-    result = mail.send(to=email_list,
-                subject='Dineout on '+ str(form.vars.dine_date),
-                # If reply_to is omitted, then mail.settings.sender is used
-                reply_to='nml.sfu@gmail.com',
-                message=content)
+    #result = mail.send(to=email_list,
+    #            subject='Dineout on '+ str(form.vars.dine_date),
+    #            # If reply_to is omitted, then mail.settings.sender is used
+    #            reply_to='nml.sfu@gmail.com',
+    #            message=content)
 
 
     session.flash = 'Accpeted.' #+ 'mailed? :' + str(result)
     redirect(URL('ledger','default','index'))
     return
+
+def all_member():
+    pool = db(db.auth_user.id > 1).select()   
+    members = " "
+    for i in range(0, len(pool)):
+        members = members + '[' + str(pool[i].id) +  '  ' + str(pool[i].first_name) + '  ' + str(pool[i].last_name) + ']  \t\t\t\t\t\t'
+    return members
