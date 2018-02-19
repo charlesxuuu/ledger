@@ -18,21 +18,53 @@
 <br>
 <h4>
 
+<!-- 2018/02 table: ugly on mobo devices
+<table>
+<tbody>
+<tr>
+<td><h4>Admin Actions&nbsp;</h4></td>
+<td><h4><a href="{{=URL('ledger','default','crew')}}">&nbsp;[Crew and lab balance]&nbsp;</a></h4></td>
+<td><h4><a href="{{=URL('ledger','default','candidate')}}">&nbsp;[Schedule a dineout]&nbsp;</a></h4></td>
+<td><h4><a href="{{=URL('ledger','default','payment')}}">&nbsp;[Manage a payment]&nbsp;</a></h4></td>
+<td><h4><a href="{{=URL('ledger','default','refund')}}">&nbsp;[Issue a refund]&nbsp;</a></h4></td>
+</tr>
+<tr>
+<td><h4>General Actions&nbsp;</h4></td>
+<td><h4><a href="{{=URL('ledger','default','history')}}">&nbsp;[Dineout history]&nbsp;</a></h4></td>
+<td><h4><a href="{{=URL('ledger','default','mypayment')}}">&nbsp;[My payment history]&nbsp;</a></h4></td>
+</tr>
+</tbody>
+</table>
+<br><br>
+-->
 
-
-
-<h4>Admin</h4>
-<h4><a href="{{=URL('ledger','default','crew')}}"> Manage our crew</a></h4>
+<h4>Admin Actions</h4>
+<h4><a href="{{=URL('ledger','default','crew')}}"> Crew and lab balance</a></h4>
 <h4><a href="{{=URL('ledger','default','candidate')}}"> Schedule a dineout</a></h4>
 <h4><a href="{{=URL('ledger','default','payment')}}"> Manage a payment</a></h4>
+<h4><a href="{{=URL('ledger','default','refund')}}"> Issue a refund</a></h4>
 <br><br>
 
-<h4>Actions</h4>
+<h4>General User Actions</h4>
 <h4><a href="{{=URL('ledger','default','history')}}"> Dineout history</a></h4>
 <h4><a href="{{=URL('ledger','default','mypayment')}}"> My payment history</a></h4>
 <br><br>
 
-<h4>Forms</h4>
+<h4>Balance Form</h4>
+<details>
+<summary>Explanations on your balance</summary>
+<h6>In short, a positive number means the lab owes you that much, a negative number means you owe the lab that much.</h6>
+</details>
+<details>
+<summary>How we calculate the share</summary>
+<h6>假设一顿饭 100 刀 有 5 个人参与<br>
+实验室出 60% 即 60 刀<br>
+剩下40%  即 40 刀 这 5 个人每个出 8 刀   其中 4 个人balance为 -8 即他欠实验室8刀 <br>
+付款人付 100 刀  这个人balance为 +92 即实验室欠他92刀 <br>
+这时候实验室的balance为 -60  表明实验室欠大家 60 刀 （欠 92 刀给付款人 - 每个人欠实验室 8 刀 * 4 = 60）<br>
+假设给付款人refund了 92 刀 付款人balance为 0 则实验室balance变为 -60+92=32 即大家欠实验室 32 刀</h6>
+</details>
+<br>
 {{=crew}}
 <br><br>
 

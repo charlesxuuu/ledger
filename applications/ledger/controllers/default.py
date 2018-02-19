@@ -13,6 +13,7 @@ from pprint import pprint
 from gluon.tools import Mail
 
 admin_id = 1
+jc_id = 20
 
 @auth.requires_login()
 def index():
@@ -163,6 +164,7 @@ def dineout():
     mail = auth.settings.mailer
     mailinfo = str(vars(mail))
     
+
     #rows
     pool = db((db.auth_user.available == True) & (db.auth_user.recent_count <= 1)).select()   
 
@@ -175,6 +177,12 @@ def dineout():
     selected = random.sample(range(0, len(pool)), len(pool))
     selected_person = list()
     selected_person_id_set = set()
+
+    #Host: Prof. Liu
+    host = db(db.auth_user.id == jc_id).select()
+    selected_person.append([str(host[0].id), host[0].first_name, host[0].last_name])
+    selected_person_id_set.add(str(host[0].id))
+
     for i in selected:
         selected_person.append([str(pool[selected[i]].id), pool[selected[i]].first_name, pool[selected[i]].last_name])
         selected_person_id_set.add(str(pool[selected[i]].id))
@@ -193,6 +201,7 @@ def dineout():
                     if i is "":
                         raise Exception("NULL value")
                     else:
+                        #TODO: consider add one from outside selected_person, e.g., whose recent count has exceeded
                         raise Exception("Invalid person id")
         except Exception, e:
             session.flash = "Insert Error (%s)" % e.message
@@ -246,8 +255,8 @@ def payment():
     return locals()
 
 def validate_payment(form):
-    if form.deleted == True:
-        form.errors = True
+    if form.vars.payer_id not in form.vars.attendee_id:
+        form.errors.payer_id = 'Payer is not in attendee list'
     if form.vars.amount < 0:
         form.errors.amount = 'Amount cannot be negative'
     if form.vars.amount is None:
