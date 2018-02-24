@@ -85,6 +85,7 @@ def _():
             (T('Crew'), False, URL('ledger', 'default', 'crew')),
             (T('Dineout'), False, URL('ledger', 'default', 'dineout')),
             (T('Payment'), False, URL('ledger', 'default', 'payment')),
+            (T('Refund'), False, URL('ledger', 'default', 'refund')),
             (T('Image'), False, URL('ledger', 'default', 'manage')),
         ])
     ]

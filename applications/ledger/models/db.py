@@ -144,6 +144,11 @@ db.define_table('payment',
   Field('user_id', db.auth_user),
   Field('amount', type='double'))
 
+db.define_table('refund',
+  Field('user_id', db.auth_user),
+  Field('refund_date', type='date'),
+  Field('amount', type='double'))
+
 db.define_table('image',
    Field('title', unique=True),
    Field('image_file', 'upload'),

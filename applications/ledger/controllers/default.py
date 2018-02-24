@@ -139,7 +139,60 @@ def candidate():
     
     return dict(candidate=candidate)
 
+@auth.requires_membership('manager')
+def refund():
+    db.auth_user.id.readable=True
+    db.auth_user.id.writable=False
+    db.auth_user.email.readable=False
+    db.auth_user.email.writable=False
+    db.auth_user.balance.readable=True
+    db.auth_user.balance.writable=False
 
+    db.auth_user.recent_count.readable=True
+    db.auth_user.recent_count.writable=False
+    db.auth_user.total_count.readable=True
+    db.auth_user.total_count.writable=False
+
+    refund = SQLFORM.grid(db.refund, deletable=False, editable=False, create=False, csv=False, orderby=~db.refund.id, paginate=10)
+    crew = SQLFORM.grid(db(db.auth_user.id != admin_id), deletable=False, editable=False, create=False, csv=False)
+    members = all_member()
+
+    form = SQLFORM(db.refund, fields = ['user_id','refund_date','amount'])
+    form.vars.refund_date = request.now.date()
+    form.add_button('BACK', URL('ledger', 'default', 'index'))
+
+    neg_amount_alert = 0
+
+    if form.process().accepted:
+        try:
+            if form.vars.user_id == admin_id:
+                raise Exception("Cannot refund on admin")
+            if form.vars.amount is None:
+                raise Exception("NULL value")
+            if form.vars.amount < 0:
+                neg_amount_alert = 1
+        except Exception, e:
+            session.flash = "Insert Error (%s)" % e.message
+            db(db.refund.id == form.vars.id).delete()
+            redirect(URL('ledger','default','index'))
+        else: 
+            db(db.auth_user.id == form.vars.user_id).update(balance=db.auth_user.balance - form.vars.amount)
+            db(db.auth_user.id == admin_id).update(balance=db.auth_user.balance + form.vars.amount)
+            
+            user_rows = db(db.auth_user.id == form.vars.user_id).select()
+            user_cur_balance = user_rows[0].balance
+            admin_rows = db(db.auth_user.id == admin_id).select()
+            lab_cur_balance = -1 * admin_rows[0].balance
+
+            if neg_amount_alert == 0:
+                session.flash = 'Accepted.  User New balance:' + str(user_cur_balance) + ' Lab new balance:' + str(lab_cur_balance)
+            else:
+                session.flash = 'Accepted with Caution. Negative Numbers. User New balance:' + str(user_cur_balance) + ' Lab new balance:' + str(lab_cur_balance)
+            redirect(URL('ledger','default','index'))
+    else:
+        response.flash = 'Please fill out the refund information'
+
+    return locals()
 
 @auth.requires_membership('manager')
 def dineout():
@@ -168,9 +221,12 @@ def dineout():
     #rows
     pool = db((db.auth_user.available == True) & (db.auth_user.recent_count <= 1)).select()   
 
+    #string for showing all members
+    members = all_member()
+    #db rows for showing all members
+    dbmembers = db(db.auth_user).select()
     #All
     #candidate = SQLFORM.grid(db.auth_user, deletable=False, editable=False, create=False, csv=False)
-
     #Filtered
     candidate = SQLFORM.grid(db((db.auth_user.available == True) & (db.auth_user.recent_count <= 1)), deletable=False, editable=False, create=False, csv=False)
     
@@ -191,8 +247,10 @@ def dineout():
     form.vars.random = str(selected_person)
     form.add_button('BACK', URL('ledger', 'default', 'candidate'))
 
+    in_list_alert = 0
+
     if form.process().accepted:
-        try :
+        try:
             for i in form.vars.attendee_id: 
                 if i in selected_person_id_set:   
                     continue            
@@ -201,8 +259,14 @@ def dineout():
                     if i is "":
                         raise Exception("NULL value")
                     else:
-                        #TODO: consider add one from outside selected_person, e.g., whose recent count has exceeded
-                        raise Exception("Invalid person id")
+                        #Old: directly raise Exception
+                        #raise Exception("Invalid person id")
+                        
+                        #New: consider add one from outside selected_person, e.g., a pointed person whose recent count has exceeded
+                        if int(i) > 1 and int(i) <= len(dbmembers):
+                            in_list_alert = 1
+                        else:
+                            raise Exception("Invalid person id")
         except Exception, e:
             session.flash = "Insert Error (%s)" % e.message
             db(db.dineout.id == form.vars.id).delete()
@@ -227,8 +291,10 @@ def dineout():
             #            # If reply_to is omitted, then mail.settings.sender is used
             #            reply_to='nml.sfu@gmail.com',
             #            message=content)
-
-            session.flash = 'Accepted. ' #+ 'mailed? :' + str(result)
+            if in_list_alert == 0:
+                session.flash = 'Accepted. ' #+ 'mailed? :' + str(result)
+            else:
+                session.flash = 'Accepted. Caution: someone is not in the ranked list!'
             redirect(URL('ledger','default','index'))
     else:
         response.flash = 'Please fill out the dineout information'
@@ -243,7 +309,8 @@ def history():
 
 @auth.requires_login()
 def mypayment():
-    mypayment = SQLFORM.grid(db(db.payment.user_id==auth.user.id), deletable=False, editable=False, create=False, csv=False, orderby=~db.payment.id, paginate=10)
+    mypayment = SQLFORM.grid(db(db.payment.user_id==auth.user.id), deletable=False, editable=False, details=False, create=False, csv=False, orderby=~db.payment.id, paginate=10)
+    myrefund = SQLFORM.grid(db(db.refund.user_id==auth.user.id), deletable=False, editable=False, details=False, create=False, csv=False, orderby=~db.refund.id, paginate=10)
     return locals()
 
 @auth.requires_membership('manager')
@@ -255,7 +322,7 @@ def payment():
     return locals()
 
 def validate_payment(form):
-    if form.vars.payer_id not in form.vars.attendee_id:
+    if str(form.vars.payer_id) not in form.vars.attendee_id:
         form.errors.payer_id = 'Payer is not in attendee list'
     if form.vars.amount < 0:
         form.errors.amount = 'Amount cannot be negative'
