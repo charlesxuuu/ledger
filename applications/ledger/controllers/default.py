@@ -12,6 +12,8 @@ import random
 from pprint import pprint
 from gluon.tools import Mail
 
+from decimal import *
+
 admin_id = 1
 jc_id = 20
 
@@ -30,13 +32,16 @@ def index():
     db.auth_user.email.writable=False
     db.auth_user.balance.readable=True
     db.auth_user.balance.writable=False
+    db.auth_user.balance.represent = lambda value, row: Decimal(value).quantize(Decimal('0.00'))
 
     db.auth_user.recent_count.readable=True
     db.auth_user.recent_count.writable=False
     db.auth_user.total_count.readable=True
     db.auth_user.total_count.writable=False
 
+ 
     crew = SQLFORM.grid(db(db.auth_user.id != admin_id), deletable=False, editable=False, create=False, csv=False)
+    #map(lambda row: row.update(balance=int(crew.rows.balance)), crew.rows)
     images = db().select(db.image.ALL, orderby=db.image.title)
     return dict(message=T('Ledger'),crew=crew,images=images)
 
@@ -108,8 +113,12 @@ def crew():
     admin = db(db.auth_user.id == admin_id).select()
     #Assume there is only one record
     cost = -1 * admin[0].balance
+    cost = Decimal(cost).quantize(Decimal('0.00'))
+
     db.auth_user.balance.readable=True
     db.auth_user.balance.writable=True
+    db.auth_user.balance.represent = lambda value, row: Decimal(value).quantize(Decimal('0.00'))
+
     grid = SQLFORM.smartgrid(db.auth_user)
     return dict(grid=grid, cost=cost)
 
@@ -135,6 +144,7 @@ def candidate():
     db.auth_user.recent_count.readable=True
     db.auth_user.recent_count.writable=True
 
+
     candidate = SQLFORM.grid(db.auth_user, deletable=False, editable=True, create=False, csv=False)
     
     return dict(candidate=candidate)
@@ -147,6 +157,7 @@ def refund():
     db.auth_user.email.writable=False
     db.auth_user.balance.readable=True
     db.auth_user.balance.writable=False
+    db.auth_user.balance.represent = lambda value, row: Decimal(value).quantize(Decimal('0.00'))
 
     db.auth_user.recent_count.readable=True
     db.auth_user.recent_count.writable=False
