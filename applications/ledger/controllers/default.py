@@ -40,7 +40,7 @@ def index():
     db.auth_user.total_count.writable=False
 
  
-    crew = SQLFORM.grid(db(db.auth_user.id != admin_id), deletable=False, editable=False, create=False, csv=False)
+    crew = SQLFORM.grid(db((db.auth_user.id != admin_id) & ((db.auth_user.available == True) | (db.auth_user.balance > 0.01) | (db.auth_user.balance < -0.01))), deletable=False, editable=False, create=False, csv=False)
     #map(lambda row: row.update(balance=int(crew.rows.balance)), crew.rows)
     images = db().select(db.image.ALL, orderby=db.image.title)
     return dict(message=T('Ledger'),crew=crew,images=images)
@@ -165,7 +165,7 @@ def refund():
     db.auth_user.total_count.writable=False
 
     refund = SQLFORM.grid(db.refund, deletable=False, editable=False, create=False, csv=False, orderby=~db.refund.id, paginate=10)
-    crew = SQLFORM.grid(db(db.auth_user.id != admin_id), deletable=False, editable=False, create=False, csv=False)
+    crew = SQLFORM.grid(db((db.auth_user.id != admin_id) & ((db.auth_user.balance > 0.01) | (db.auth_user.balance < -0.01))), deletable=False, editable=False, create=False, csv=False)
     members = all_member()
 
     form = SQLFORM(db.refund, fields = ['user_id','refund_date','amount'])
@@ -230,7 +230,7 @@ def dineout():
     
 
     #rows
-    pool = db((db.auth_user.available == True) & (db.auth_user.recent_count <= 1)).select()   
+    pool = db((db.auth_user.available == True) & (db.auth_user.recent_count <= 3)).select()   
 
     #string for showing all members
     members = all_member()
@@ -239,7 +239,7 @@ def dineout():
     #All
     #candidate = SQLFORM.grid(db.auth_user, deletable=False, editable=False, create=False, csv=False)
     #Filtered
-    candidate = SQLFORM.grid(db((db.auth_user.available == True) & (db.auth_user.recent_count <= 1)), deletable=False, editable=False, create=False, csv=False)
+    candidate = SQLFORM.grid(db((db.auth_user.available == True) & (db.auth_user.recent_count <= 3)), deletable=False, editable=False, create=False, csv=False)
     
     selected = random.sample(range(0, len(pool)), len(pool))
     selected_person = list()
